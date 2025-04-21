@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Animation Player</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Prevents scrollbars */
+        }
+
+        img {
+            width: 100vw; /* 100% of the viewport width */
+            height: 100vh; /* 100% of the viewport height */
+            object-fit: contain; /* Ensures the image fits within the screen without distortion */
+        }
+
+        #debugText {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 24px;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 5px;
+            border-radius: 5px;
+            z-index: 10; /* Ensures the text appears above the image */
+        }
+    </style>
+</head>
+<body>
+    <img id="animation" src="" alt="Animation Frame">
+    <div id="debugText"></div> <!-- This div will display debugging information -->
+
+    <script>
+        let images = [];
+        let index = 0;
+        const frameRate = 24; // Target frame rate (frames per second)
+        const frameInterval = 1000 / frameRate; // Interval in milliseconds for each frame
+        const imgElement = document.getElementById("animation");
+        const debugText = document.getElementById("debugText");
+        const folderPaths = [
+            'animations/standing/set1', // Standing stage
+            'animations/walking/set1',  // Walking stage
+            'animations/special/set1'   // Special stage
+        ];
+        let currentFolderIndex = 0; // Tracks the current stage (standing -> walking -> special)
+        let lastFrameTime = 0; // Timestamp for the last frame
+
+        // Preload images from the current animation stage (folder)
+        function preloadImages() {
+            let i = 0;
+            images = []; // Clear images before loading the next stage's images
+            function loadNext() {
+                let imgPath = `${folderPaths[currentFolderIndex]}/${i.toString().padStart(4, '0')}.png`;
+                let img = new Image();
+                img.src = imgPath;
+                img.onload = () => {
+                    images.push(imgPath); // Add the image to the array once it's loaded
+                    i++;
+                    loadNext(); // Load the next image
+                };
+                img.onerror = () => {
+                    if (images.length > 0) startAnimation(); // Start the animation only after images are loaded
+                    else console.error(`No images found in ${folderPaths[currentFolderIndex]}`);
+                };
+            }
+            loadNext();
+        }
+
+        // Start the animation using requestAnimationFrame for a constant framerate
+        function startAnimation(timestamp) {
+            if (images.length === 0) return;
+
+            // Calculate the time elapsed since the last frame
+            const elapsedTime = timestamp - lastFrameTime;
+
+            if (elapsedTime >= frameInterval) {
+                // Update the image if enough time has passed for the constant framerate
+                imgElement.src = images[index]; // Update the image
+                updateDebugText(index); // Update the debug text with the current frame info
+                index = (index + 1) % images.length; // Loop through the images in the current folder
+
+                // If we reach the end of the images, transition to the next stage
+                if (index === 0) {
+                    transitionToNextStage(); // Transition to the next animation stage
+                }
+
+                lastFrameTime = timestamp; // Update the timestamp for the next frame
+            }
+
+            // Request the next frame
+            requestAnimationFrame(startAnimation);
+        }
+
+        // Transition to the next animation stage (folder)
+        function transitionToNextStage() {
+            currentFolderIndex = (currentFolderIndex + 1) % folderPaths.length; // Switch between stages
+            preloadImages(); // Load the images for the next stage
+        }
+
+        // Update the debug text with the current stage, folder, and image number
+        function updateDebugText(imageIndex) {
+            const stageNames = ["Standing", "Walking", "Special"]; // Stage names
+            const folder = folderPaths[currentFolderIndex]; // Folder path for images
+            const imageNumber = (imageIndex + 1).toString().padStart(4, '0'); // Image number (padded)
+            const stage = stageNames[currentFolderIndex]; // Current stage name
+
+            // Update the debug text
+            debugText.innerHTML = `Stage: ${stage}<br>Folder: ${folder}<br>Image: ${imageNumber}`;
+        }
+
+        // Call the preloadImages function to load the images for the first stage (standing)
+        preloadImages();
+    </script>
+</body>
+</html>
