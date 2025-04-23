@@ -18,6 +18,11 @@
             height: 100vh; /* 100% of the viewport height */
             object-fit: contain; /* Ensures the image fits within the screen without distortion */
         }
+        img.onerror = () => {
+  console.warn(`Could not load ${url}`);
+  loadedImages[index] = null; // or a placeholder
+  checkAllImagesLoaded();
+};
 
         #debugText {
             position: absolute;
