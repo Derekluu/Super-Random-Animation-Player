@@ -10,13 +10,13 @@
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
-            overflow: hidden; /* Prevents scrollbars */
+            overflow: hidden;
         }
 
         img {
-            width: 100vw; /* 100% of the viewport width */
-            height: 100vh; /* 100% of the viewport height */
-            object-fit: contain; /* Ensures the image fits within the screen without distortion */
+            width: 100vw;
+            height: 100vh;
+            object-fit: contain;
         }
 
         #debugText {
@@ -28,124 +28,94 @@
             background-color: rgba(0, 0, 0, 0.5);
             padding: 5px;
             border-radius: 5px;
-            z-index: 10; /* Ensures the text appears above the image */
+            z-index: 10;
         }
     </style>
 </head>
 <body>
     <img id="animation" src="" alt="Animation Frame">
-    <div id="debugText"></div> <!-- This div will display debugging information -->
+    <div id="debugText"></div>
 
     <script>
         let images = [];
         let index = 0;
-        const frameRate = 24; // Target frame rate (frames per second)
-        const frameInterval = 1000 / frameRate; // Interval in milliseconds for each frame
+        const frameRate = 24;
+        const frameInterval = 1000 / frameRate;
         const imgElement = document.getElementById("animation");
         const debugText = document.getElementById("debugText");
         const folderPaths = [
-            'animations/standing', // Standing stage
-            'animations/walking',  // Walking stage
-            'animations/special'   // Special stage
+            'animations/standing',
+            'animations/walking',
+            'animations/special'
         ];
-        let currentFolderIndex = 0; // Tracks the current stage (standing -> walking -> special)
-        let lastFrameTime = 0; // Timestamp for the last frame
-        let currentSet = ''; // Tracks which set (e.g. set1, set2, etc.) is being used
+        let currentFolderIndex = 0;
+        let lastFrameTime = 0;
+        let currentSet = '';
 
-        // Preload images from the current animation stage (folder) and randomly pick one of the sets
         function preloadImages() {
             let i = 0;
-            images = []; // Clear images before loading the next stage's images
-
-            // Dynamically find all available sets in the current stage folder
-            const randomSetIndex = getRandomSetIndex(); // Randomly pick a set index
-            currentSet = `set${randomSetIndex}`; // Set the current set (e.g., "set1", "set2", etc.)
-            const folderPath = `${folderPaths[currentFolderIndex]}/${currentSet}`; // Folder for the current set
-
-            // Attempt to load the images from the chosen set
+            images = [];
+            const randomSetIndex = getRandomSetIndex();
+            currentSet = `set${randomSetIndex}`;
+            const folderPath = `${folderPaths[currentFolderIndex]}/${currentSet}`;
             loadNext(folderPath, i);
         }
 
-        // Function to try loading images from a specific folder (set)
         function loadNext(folderPath, i) {
             let imgPath = `${folderPath}/${i.toString().padStart(4, '0')}.png`;
             let img = new Image();
             img.src = imgPath;
             img.onload = () => {
-                images.push(imgPath); // Add the image to the array once it's loaded
+                images.push(imgPath);
                 i++;
-                loadNext(folderPath, i); // Load the next image
+                loadNext(folderPath, i);
             };
             img.onerror = () => {
-                // If the set doesn't exist, try the next one
                 if (images.length === 0) {
                     console.error(`No images found in ${folderPath}`);
-                    const nextSetIndex = getNextSetIndex();
+                    const nextSetIndex = getRandomSetIndex();
                     currentSet = `set${nextSetIndex}`;
                     const nextFolderPath = `${folderPaths[currentFolderIndex]}/${currentSet}`;
-                    loadNext(nextFolderPath, 0); // Attempt to load the next set
+                    loadNext(nextFolderPath, 0);
                 } else {
-                    startAnimation(); // Start the animation once images are loaded
+                    startAnimation(performance.now());
                 }
             };
         }
 
-        // Function to randomly choose a set from available sets
         function getRandomSetIndex() {
-            const maxSets = 5; // You can change this number to the number of sets you have in each folder
-            return Math.floor(Math.random() * maxSets) + 1; // Returns a random number between 1 and maxSets (e.g., 1 to 5)
+            const maxSets = 5;
+            return Math.floor(Math.random() * maxSets) + 1;
         }
 
-        // Function to get the next available set index in case the current set doesn't exist
-        function getNextSetIndex() {
-            const maxSets = 5; // You can change this number to the number of sets you have in each folder
-            const randomSetIndex = Math.floor(Math.random() * maxSets) + 1;
-            return randomSetIndex; // Return the next available set index
-        }
-
-        // Start the animation using requestAnimationFrame for a constant framerate
         function startAnimation(timestamp) {
             if (images.length === 0) return;
-
-            // Calculate the time elapsed since the last frame
             const elapsedTime = timestamp - lastFrameTime;
-
             if (elapsedTime >= frameInterval) {
-                // Update the image if enough time has passed for the constant framerate
-                imgElement.src = images[index]; // Update the image
-                updateDebugText(index); // Update the debug text
-                index = (index + 1) % images.length; // Loop through the images in the current folder
-
-                // If we reach the end of the images, transition to the next stage
+                imgElement.src = images[index];
+                updateDebugText(index);
+                index = (index + 1) % images.length;
                 if (index === 0) {
-                    transitionToNextStage(); // Transition to the next animation stage
+                    transitionToNextStage();
                 }
-
-                lastFrameTime = timestamp; // Update the timestamp for the next frame
+                lastFrameTime = timestamp;
             }
-
-            // Request the next frame
             requestAnimationFrame(startAnimation);
         }
 
-        // Transition to the next animation stage (folder)
         function transitionToNextStage() {
-            currentFolderIndex = (currentFolderIndex + 1) % folderPaths.length; // Switch between stages
-            preloadImages(); // Load the images for the next stage
+            currentFolderIndex = (currentFolderIndex + 1) % folderPaths.length;
+            preloadImages();
         }
 
-        // Update the debug text with the current stage, folder, and image number
         function updateDebugText(imageIndex) {
-            const stageNames = ["Standing", "Walking", "Special"]; // Stage names
-            const folder = `${folderPaths[currentFolderIndex]}/${currentSet}`; // Folder path for images
-            const imageNumber = (imageIndex + 1).toString().padStart(4, '0'); // Image number (padded)
-            const stage = stageNames[currentFolderIndex]; // Current stage name
-
-            // Update the debug text
+            const stageNames = ["Standing", "Walking", "Special"];
+            const folder = `${folderPaths[currentFolderIndex]}/${currentSet}`;
+            const imageNumber = (imageIndex + 1).toString().padStart(4, '0');
+            const stage = stageNames[currentFolderIndex];
             debugText.innerHTML = `Stage: ${stage}<br>Folder: ${folder}<br>Image: ${imageNumber}`;
         }
 
-        // Call the preloadImages function to load the images for the first stage (standing)
         preloadImages();
     </script>
 </body>
