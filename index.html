@@ -11,12 +11,14 @@
             margin: 0;
             padding: 0;
             overflow: hidden;
+            background-color: black;
         }
 
         img {
             width: 100vw;
             height: 100vh;
             object-fit: contain;
+            display: none;
         }
 
         #debugText {
@@ -29,72 +31,128 @@
             padding: 5px;
             border-radius: 5px;
             z-index: 10;
+            display: none;
+        }
+
+        #loadingScreen {
+            position: absolute;
+            width: 100vw;
+            height: 100vh;
+            background-color: black;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 24px;
+            z-index: 20;
+        }
+
+        #progressBarContainer {
+            width: 80%;
+            background-color: #444;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+
+        #progressBar {
+            width: 0%;
+            height: 20px;
+            background-color: limegreen;
         }
     </style>
 </head>
 <body>
+    <div id="loadingScreen">
+        Loading animations...
+        <div id="progressBarContainer">
+            <div id="progressBar"></div>
+        </div>
+    </div>
+
     <img id="animation" src="" alt="Animation Frame">
     <div id="debugText"></div>
 
     <script>
-        let images = [];
-        let index = 0;
         const frameRate = 24;
         const frameInterval = 1000 / frameRate;
         const imgElement = document.getElementById("animation");
         const debugText = document.getElementById("debugText");
+        const loadingScreen = document.getElementById("loadingScreen");
+        const progressBar = document.getElementById("progressBar");
+
         const folderPaths = [
             'animations/standing',
             'animations/walking',
             'animations/special'
         ];
+        const maxSets = 5;
+        let allFrames = [];
         let currentFolderIndex = 0;
+        let index = 0;
         let lastFrameTime = 0;
-        let currentSet = '';
 
-        function preloadImages() {
-            let i = 0;
-            images = [];
-            const randomSetIndex = getRandomSetIndex();
-            currentSet = `set${randomSetIndex}`;
-            const folderPath = `${folderPaths[currentFolderIndex]}/${currentSet}`;
-            loadNext(folderPath, i);
-        }
+        async function preloadAllImages() {
+            let totalToLoad = folderPaths.length * 50; // Estimate max of 50 frames per set
+            let totalLoaded = 0;
 
-        function loadNext(folderPath, i) {
-            let imgPath = `${folderPath}/${i.toString().padStart(4, '0')}.png`;
-            let img = new Image();
-            img.src = imgPath;
-            img.onload = () => {
-                images.push(imgPath);
-                i++;
-                loadNext(folderPath, i);
-            };
-            img.onerror = () => {
-                if (images.length === 0) {
-                    console.error(`No images found in ${folderPath}`);
-                    const nextSetIndex = getRandomSetIndex();
-                    currentSet = `set${nextSetIndex}`;
-                    const nextFolderPath = `${folderPaths[currentFolderIndex]}/${currentSet}`;
-                    loadNext(nextFolderPath, 0);
-                } else {
-                    startAnimation(performance.now());
-                }
-            };
+            for (let stageIndex = 0; stageIndex < folderPaths.length; stageIndex++) {
+                const randomSetIndex = getRandomSetIndex();
+                const setPath = `${folderPaths[stageIndex]}/set${randomSetIndex}`;
+                const stageFrames = await loadImageSet(setPath, (loaded) => {
+                    totalLoaded += loaded;
+                    const progress = Math.min((totalLoaded / totalToLoad) * 100, 100);
+                    progressBar.style.width = progress + "%";
+                });
+                allFrames.push({ stageIndex, set: `set${randomSetIndex}`, frames: stageFrames });
+            }
+
+            loadingScreen.style.display = 'none';
+            imgElement.style.display = 'block';
+            debugText.style.display = 'block';
+            startAnimation(performance.now());
         }
 
         function getRandomSetIndex() {
-            const maxSets = 5;
             return Math.floor(Math.random() * maxSets) + 1;
         }
 
+        function loadImageSet(path, onProgress) {
+            return new Promise((resolve) => {
+                const images = [];
+                let i = 0;
+
+                function tryLoad() {
+                    const imgPath = `${path}/${i.toString().padStart(4, '0')}.png`;
+                    const img = new Image();
+                    img.src = imgPath;
+                    img.onload = () => {
+                        images.push(imgPath);
+                        i++;
+                        onProgress(1);
+                        tryLoad();
+                    };
+                    img.onerror = () => {
+                        resolve(images);
+                    };
+                }
+
+                tryLoad();
+            });
+        }
+
         function startAnimation(timestamp) {
-            if (images.length === 0) return;
+            if (allFrames.length === 0) return;
+            const currentStage = allFrames[currentFolderIndex];
+            const frames = currentStage.frames;
+            if (!frames || frames.length === 0) return;
+
             const elapsedTime = timestamp - lastFrameTime;
             if (elapsedTime >= frameInterval) {
-                imgElement.src = images[index];
-                updateDebugText(index);
-                index = (index + 1) % images.length;
+                imgElement.src = frames[index];
+                updateDebugText(currentStage.stageIndex, currentStage.set, index);
+                index = (index + 1) % frames.length;
                 if (index === 0) {
                     transitionToNextStage();
                 }
@@ -104,19 +162,19 @@
         }
 
         function transitionToNextStage() {
-            currentFolderIndex = (currentFolderIndex + 1) % folderPaths.length;
-            preloadImages();
+            currentFolderIndex = (currentFolderIndex + 1) % allFrames.length;
+            index = 0;
         }
 
-        function updateDebugText(imageIndex) {
+        function updateDebugText(stageIndex, setName, imageIndex) {
             const stageNames = ["Standing", "Walking", "Special"];
-            const folder = `${folderPaths[currentFolderIndex]}/${currentSet}`;
+            const folder = `${folderPaths[stageIndex]}/${setName}`;
             const imageNumber = (imageIndex + 1).toString().padStart(4, '0');
-            const stage = stageNames[currentFolderIndex];
+            const stage = stageNames[stageIndex];
             debugText.innerHTML = `Stage: ${stage}<br>Folder: ${folder}<br>Image: ${imageNumber}`;
         }
 
-        preloadImages();
+        preloadAllImages();
     </script>
 </body>
 </html>
