@@ -43,14 +43,23 @@
         const frameInterval = 1000 / frameRate; // Interval in milliseconds for each frame
         const imgElement = document.getElementById("animation");
         const debugText = document.getElementById("debugText");
-        const folderPaths = [
-            'animations/standing', // Standing stage
-            'animations/walking',  // Walking stage
-            'animations/special'   // Special stage
-        ];
-        let currentFolderIndex = 0; // Tracks the current stage (standing -> walking -> special)
-        let lastFrameTime = 0; // Timestamp for the last frame
+
+        // Define the number of sets for each animation stage (standing, walking, special)
+        const stageSetCounts = {
+            standing: 5, // 5 sets for standing
+            walking: 2,  // 4 sets for walking
+            special: 2,   // 3 sets for special
+        };
+
+        const folderPaths = {
+            standing: 'animations/standing', // Standing stage
+            walking: 'animations/walking',   // Walking stage
+            special: 'animations/special'    // Special stage
+        };
+
+        let currentStage = 'standing'; // Default stage to start
         let currentSet = ''; // Tracks which set (e.g. set1, set2, etc.) is being used
+        let lastFrameTime = 0; // Timestamp for the last frame
 
         // Preload images from the current animation stage (folder) and randomly pick one of the sets
         function preloadImages() {
@@ -58,40 +67,36 @@
             images = []; // Clear images before loading the next stage's images
 
             // Dynamically find all available sets in the current stage folder
-            const randomSetIndex = getRandomSetIndex(); // Randomly pick a set index
+            const randomSetIndex = getRandomSetIndex(currentStage); // Randomly pick a set index for the current stage
             currentSet = `set${randomSetIndex}`; // Set the current set (e.g., "set1", "set2", etc.)
-            const folderPath = `${folderPaths[currentFolderIndex]}/${currentSet}`; // Folder for the current set
+            const folderPath = `${folderPaths[currentStage]}/${currentSet}`; // Folder for the current set
 
             // Attempt to load the images from the chosen set
-            loadAllImages(folderPath, i);
+            loadNext(folderPath, i);
         }
 
-        // Function to load all images from a folder (set) before starting the animation
-        function loadAllImages(folderPath, i) {
+        // Function to try loading images from a specific folder (set)
+        function loadNext(folderPath, i) {
             let imgPath = `${folderPath}/${i.toString().padStart(4, '0')}.png`;
             let img = new Image();
             img.src = imgPath;
-            
             img.onload = () => {
                 images.push(imgPath); // Add the image to the array once it's loaded
                 i++;
-                loadAllImages(folderPath, i); // Load the next image
+                loadNext(folderPath, i); // Load the next image
             };
-            
             img.onerror = () => {
-                // If there are no more images (404 error), stop loading
-                if (i === 0) {
+                // Skip images that don't exist, and move to the next one
+                if (images.length === 0) {
                     console.error(`No images found in ${folderPath}`);
-                } else {
-                    console.log(`Finished loading images from ${folderPath}`);
-                    startAnimation(); // Start animation once all images are loaded
                 }
+                startAnimation(); // Start the animation once images are loaded
             };
         }
 
-        // Function to randomly choose a set from available sets
-        function getRandomSetIndex() {
-            const maxSets = 5; // You can change this number to the number of sets you have in each folder
+        // Function to randomly choose a set index for the given stage
+        function getRandomSetIndex(stage) {
+            const maxSets = stageSetCounts[stage] || 1; // Get the number of sets for the stage
             return Math.floor(Math.random() * maxSets) + 1; // Returns a random number between 1 and maxSets (e.g., 1 to 5)
         }
 
@@ -122,16 +127,18 @@
 
         // Transition to the next animation stage (folder)
         function transitionToNextStage() {
-            currentFolderIndex = (currentFolderIndex + 1) % folderPaths.length; // Switch between stages
+            const stages = ['standing', 'walking', 'special'];
+            const currentIndex = stages.indexOf(currentStage);
+            currentStage = stages[(currentIndex + 1) % stages.length]; // Move to the next stage
             preloadImages(); // Load the images for the next stage
         }
 
         // Update the debug text with the current stage, folder, and image number
         function updateDebugText(imageIndex) {
             const stageNames = ["Standing", "Walking", "Special"]; // Stage names
-            const folder = `${folderPaths[currentFolderIndex]}/${currentSet}`; // Folder path for images
+            const folder = `${folderPaths[currentStage]}/${currentSet}`; // Folder path for images
             const imageNumber = (imageIndex + 1).toString().padStart(4, '0'); // Image number (padded)
-            const stage = stageNames[currentFolderIndex]; // Current stage name
+            const stage = stageNames[Object.keys(folderPaths).indexOf(currentStage)]; // Current stage name
 
             // Update the debug text
             debugText.innerHTML = `Stage: ${stage}<br>Folder: ${folder}<br>Image: ${imageNumber}`;
